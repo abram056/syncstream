@@ -48,7 +48,7 @@ func TestCreateRoomMethodNotAllowed(t *testing.T) {
 	}
 }
 
-func TestCreateRoomNotImplemented(t *testing.T) {
+func TestCreateRoomBadRequest(t *testing.T) {
 	router := api.NewRouter()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", nil)
@@ -56,7 +56,7 @@ func TestCreateRoomNotImplemented(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 
-	if res.Code != http.StatusNotImplemented {
-		t.Fatalf("expected status %d but got %d", http.StatusNotImplemented, res.Code)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d but got %d", http.StatusBadRequest, res.Code)
 	}
 }
