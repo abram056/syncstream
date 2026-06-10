@@ -12,6 +12,7 @@ func NewRouter() http.Handler {
 
 	mux.HandleFunc("/health", h.Health)
 	mux.HandleFunc("/api/v1/rooms", h.CreateRoom)
+	mux.HandleFunc("/api/v1/rooms/", h.GetRoom)
 
 	return mux
 }
