@@ -8,4 +8,5 @@ type Repository interface {
 	CreateRoom(room *models.Room) error
 	GetRoomByID(id string) (*models.Room, error)
 	DeleteRoom(id string) error
+	ListRooms() ([]*models.Room, error)
 }

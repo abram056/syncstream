@@ -4,10 +4,11 @@ import (
 	"net/http"
 
 	"github.com/abram056/syncstream/backend/internal/api/handlers"
+	"github.com/abram056/syncstream/backend/internal/room"
 )
 
-func NewRouter() http.Handler {
-	h := handlers.NewHandler()
+func NewRouter(manager *room.Manager) http.Handler {
+	h := handlers.NewHandler(manager)
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", h.Health)

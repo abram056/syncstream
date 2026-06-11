@@ -53,3 +53,14 @@ func (s *RoomStore) DeleteRoom(id string) error {
 	delete(s.rooms, id)
 	return nil
 }
+
+func (s *RoomStore) ListRooms() ([]*models.Room, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	res := make([]*models.Room, 0, len(s.rooms))
+	for _, r := range s.rooms {
+		res = append(res, r)
+	}
+	return res, nil
+}
