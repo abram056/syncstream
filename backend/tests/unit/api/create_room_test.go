@@ -1,4 +1,4 @@
-package api
+package api_test
 
 import (
 	"bytes"
@@ -8,14 +8,22 @@ import (
 	"testing"
 
 	"github.com/abram056/syncstream/backend/internal/api"
+	"github.com/abram056/syncstream/backend/internal/room"
+	memory "github.com/abram056/syncstream/backend/internal/storage/memory"
 )
 
 type createRoomResponse struct {
 	RoomID string `json:"room_id"`
 }
 
+func newTestRouter() http.Handler {
+	repo := memory.NewRoomStore()
+	manager := room.NewManager(repo)
+	return api.NewRouter(manager)
+}
+
 func TestCreateRoomEndpoint(t *testing.T) {
-	router := api.NewRouter()
+	router := newTestRouter()
 
 	payload := map[string]string{"media_url": "https://example.com/video.mp4", "title": "Test Video"}
 	body, _ := json.Marshal(payload)
@@ -40,7 +48,7 @@ func TestCreateRoomEndpoint(t *testing.T) {
 }
 
 func TestGetRoomEndpoint(t *testing.T) {
-	router := api.NewRouter()
+	router := newTestRouter()
 
 	// First create a room.
 	payload := map[string]string{"media_url": "https://example.com/video.mp4"}
