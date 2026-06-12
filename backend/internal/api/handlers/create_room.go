@@ -8,10 +8,12 @@ import (
 
 	"github.com/abram056/syncstream/backend/internal/models"
 	"github.com/abram056/syncstream/backend/internal/room"
+	ws "github.com/abram056/syncstream/backend/internal/websocket"
 )
 
 type Handler struct {
 	roomManager *room.Manager
+	wsHandler   *ws.Handler
 }
 
 type createRoomRequest struct {
@@ -34,7 +36,10 @@ type getRoomResponse struct {
 }
 
 func NewHandler(manager *room.Manager) *Handler {
-	return &Handler{roomManager: manager}
+	return &Handler{
+		roomManager: manager,
+		wsHandler:   ws.NewHandler(manager),
+	}
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
@@ -129,4 +134,8 @@ func (h *Handler) GetRoom(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (h *Handler) WebSocket(w http.ResponseWriter, r *http.Request) {
+	h.wsHandler.ServeWS(w, r)
 }
