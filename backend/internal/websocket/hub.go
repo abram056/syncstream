@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/abram056/syncstream/backend/internal/room"
 )
@@ -56,11 +57,16 @@ func (h *Hub) Run() {
 
 					// broadcast user_left to remaining clients
 					evt := map[string]interface{}{
-						"type":    "user_left",
-						"user_id": client.ParticipantID,
+						"type":        "user_left",
+						"userId":      client.ParticipantID,
+						"displayName": client.DisplayName,
 					}
 					if msg, err := json.Marshal(evt); err == nil {
 						h.Broadcast(msg)
+					}
+
+					if err := h.broadcastRoomState("room_state"); err != nil {
+						log.Printf("failed to broadcast room_state after leave: %v", err)
 					}
 				}
 
@@ -110,12 +116,11 @@ func (h *Hub) UnregisterClient(client *Client) {
 
 // HandleJoinRoom processes a join_room event.
 func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
-	displayName, ok := evt["display_name"].(string)
+	displayName, ok := getDisplayName(evt)
 	if !ok || displayName == "" {
 		return ErrInvalidEvent
 	}
 
-	// add participant to room via manager
 	participant, err := h.manager.AddParticipant(h.roomID, client.ParticipantID, displayName)
 	if err != nil {
 		return err
@@ -123,43 +128,117 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 
 	client.DisplayName = participant.DisplayName
 
-	// send room_joined confirmation to the client
 	roomJoined := map[string]interface{}{
-		"type":    "room_joined",
-		"room_id": h.roomID,
+		"type":   "room_joined",
+		"roomId": h.roomID,
 	}
 	if msg, err := json.Marshal(roomJoined); err == nil {
 		client.Send <- msg
 	}
 
-	// send room_state to the client
 	r, err := h.manager.GetRoomByID(h.roomID)
 	if err != nil {
 		return err
 	}
 
 	roomState := map[string]interface{}{
-		"type":         "room_state",
-		"room_id":      r.ID,
-		"status":       string(r.Status),
-		"media_url":    r.Media.URL,
-		"is_playing":   r.PlaybackState.IsPlaying,
-		"position":     r.PlaybackState.Position,
-		"participants": len(r.Participants),
+		"type":              "room_state",
+		"roomId":            r.ID,
+		"status":            string(r.Status),
+		"mediaUrl":          r.Media.URL,
+		"isPlaying":         r.PlaybackState.IsPlaying,
+		"position":          r.PlaybackState.Position,
+		"numOfParticipants": len(r.Participants),
 	}
 	if msg, err := json.Marshal(roomState); err == nil {
 		client.Send <- msg
 	}
 
-	// broadcast user_joined to other clients
 	userJoined := map[string]interface{}{
-		"type":         "user_joined",
-		"user_id":      client.ParticipantID,
-		"display_name": displayName,
+		"type":        "user_joined",
+		"userId":      client.ParticipantID,
+		"displayName": displayName,
 	}
 	if msg, err := json.Marshal(userJoined); err == nil {
 		h.Broadcast(msg)
 	}
 
+	if err := h.broadcastRoomState("room_state"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getDisplayName(evt map[string]interface{}) (string, bool) {
+	if v, ok := evt["display_name"].(string); ok {
+		return v, true
+	}
+	if v, ok := evt["displayName"].(string); ok {
+		return v, true
+	}
+	return "", false
+}
+
+func (h *Hub) HandlePlay(client *Client, position float64, hasPosition bool) error {
+	if hasPosition {
+		if _, err := h.manager.Seek(h.roomID, client.ParticipantID, position); err != nil {
+			return err
+		}
+	}
+
+	if _, err := h.manager.Play(h.roomID, client.ParticipantID); err != nil {
+		return err
+	}
+
+	return h.broadcastRoomState("sync_state")
+}
+
+func (h *Hub) HandlePause(client *Client, position float64, hasPosition bool) error {
+	if hasPosition {
+		if _, err := h.manager.Seek(h.roomID, client.ParticipantID, position); err != nil {
+			return err
+		}
+	}
+
+	if _, err := h.manager.Pause(h.roomID, client.ParticipantID); err != nil {
+		return err
+	}
+
+	return h.broadcastRoomState("sync_state")
+}
+
+func (h *Hub) HandleSeek(client *Client, position float64) error {
+	if _, err := h.manager.Seek(h.roomID, client.ParticipantID, position); err != nil {
+		return err
+	}
+
+	return h.broadcastRoomState("sync_state")
+}
+
+func (h *Hub) broadcastRoomState(eventType string) error {
+	r, err := h.manager.GetRoomByID(h.roomID)
+	if err != nil {
+		return err
+	}
+
+	roomState := map[string]interface{}{
+		"type":              eventType,
+		"roomId":            r.ID,
+		"status":            string(r.Status),
+		"mediaUrl":          r.Media.URL,
+		"isPlaying":         r.PlaybackState.IsPlaying,
+		"position":          r.PlaybackState.Position,
+		"updatedBy":         r.PlaybackState.UpdatedBy,
+		"updatedAt":         r.PlaybackState.UpdatedAt.UnixNano() / int64(time.Millisecond),
+		"numOfParticipants": len(r.Participants),
+	}
+
+	msg, err := json.Marshal(roomState)
+	if err != nil {
+		return err
+	}
+
+	h.Broadcast(msg)
 	return nil
 }

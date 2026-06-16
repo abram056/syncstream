@@ -112,6 +112,45 @@ func (c *Client) handleEvent(evt map[string]interface{}) error {
 			c.Joined = true
 		}
 
+	case "play":
+		if !c.Joined {
+			return ErrInvalidEvent
+		}
+		position, hasPosition, err := getPositionField(evt)
+		if err != nil {
+			return err
+		}
+		if err := c.Hub.HandlePlay(c, position, hasPosition); err != nil {
+			return err
+		}
+
+	case "pause":
+		if !c.Joined {
+			return ErrInvalidEvent
+		}
+		position, hasPosition, err := getPositionField(evt)
+		if err != nil {
+			return err
+		}
+		if err := c.Hub.HandlePause(c, position, hasPosition); err != nil {
+			return err
+		}
+
+	case "seek":
+		if !c.Joined {
+			return ErrInvalidEvent
+		}
+		position, hasPosition, err := getPositionField(evt)
+		if err != nil {
+			return err
+		}
+		if !hasPosition {
+			return ErrInvalidEvent
+		}
+		if err := c.Hub.HandleSeek(c, position); err != nil {
+			return err
+		}
+
 	case "ping":
 		pong := map[string]interface{}{"type": "pong"}
 		if msg, err := json.Marshal(pong); err == nil {
@@ -123,6 +162,32 @@ func (c *Client) handleEvent(evt map[string]interface{}) error {
 	}
 
 	return nil
+}
+
+func getPositionField(evt map[string]interface{}) (float64, bool, error) {
+	value, ok := evt["position"]
+	if !ok {
+		return 0, false, nil
+	}
+
+	switch v := value.(type) {
+	case float64:
+		return v, true, nil
+	case float32:
+		return float64(v), true, nil
+	case int:
+		return float64(v), true, nil
+	case int64:
+		return float64(v), true, nil
+	case json.Number:
+		f, err := v.Float64()
+		if err != nil {
+			return 0, false, ErrInvalidEvent
+		}
+		return f, true, nil
+	default:
+		return 0, false, ErrInvalidEvent
+	}
 }
 
 // generateParticipantID creates a unique participant ID.
