@@ -116,6 +116,19 @@ Broadcast when a participant disconnects or leaves.
 
 ---
 
+### Room Status Transitions
+
+The server maintains an authoritative `status` for each room and emits `room_state` updates when the status or membership changes.
+
+- `waiting` → `active`: emitted when the first participant joins the room. Clients should expect to receive a `room_state` or `user_joined` event after a successful join.
+- `active` → `idle`: emitted when the last participant leaves. The server will broadcast `user_left` events as participants disconnect; when participant count reaches zero the room `status` will be `idle`.
+
+Cleanup behavior:
+
+- The backend runs a periodic cleanup job that deletes rooms in the `idle` state which have been inactive past a retention threshold (MVP default: 1 hour).
+- If a room is deleted while a client tries to connect, the server will respond with an error (e.g. `room not found`) or close the websocket connection. Clients should handle `error` events and `404` responses gracefully and re-create a room if appropriate.
+
+
 ### Pong
 
 Response to a ping.

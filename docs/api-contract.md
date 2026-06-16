@@ -12,7 +12,7 @@ POST /api/v1/rooms
 Request:
 
 ```
-{}
+{   media_url: "https://example.com/video.mp4" }
 ```
 
 Response:
@@ -49,6 +49,26 @@ Status:
 ```
 
 ---
+
+### Room Status & Cleanup
+
+Rooms expose a `status` field with these possible values:
+
+- `waiting` — room created but no active participants yet.
+- `active` — one or more participants are connected and the room is actively used.
+- `idle` — no participants currently connected; the room is kept temporarily.
+
+Behavior:
+
+- When the first participant successfully joins a room it transitions `waiting` → `active`.
+- When the last participant leaves it transitions `active` → `idle`.
+- Idle rooms are retained temporarily and periodically cleaned up by the backend (see cleanup policy below).
+
+Cleanup policy:
+
+- The server removes idle rooms that have been inactive longer than the configured retention threshold (MVP default: 1 hour).
+- Cleanup runs in a background task on the server and deletes expired rooms from the authoritative store. Deleted rooms will return `404 Not Found` for subsequent `GET /api/v1/rooms/{room_id}` requests.
+
 
 ### Health Check
 
