@@ -66,8 +66,11 @@ Behavior:
 
 Cleanup policy:
 
-- The server removes idle rooms that have been inactive longer than the configured retention threshold (MVP default: 1 hour).
-- Cleanup runs in a background task on the server and deletes expired rooms from the authoritative store. Deleted rooms will return `404 Not Found` for subsequent `GET /api/v1/rooms/{room_id}` requests.
+- Disconnected participants are retained for a grace period (default: 5 minutes).
+- After the grace period ends, expired participants are removed and `user_left` is broadcast.
+- The server removes idle rooms that have been inactive longer than the configured retention threshold (default: 30 minutes).
+- Cleanup runs in a background task at a configurable interval (default: 10 minutes).
+- Deleted rooms will return `404 Not Found` for subsequent `GET /api/v1/rooms/{room_id}` requests.
 
 
 ### Health Check
@@ -121,11 +124,11 @@ Once connected, all communication follows the event protocol you already defined
 ### Client → Server
 
 ```
-join_room
+join_room (with optional reconnect_token)
+leave_room
 play
 pause
 seek
-ping
 ```
 
 ---
@@ -133,11 +136,12 @@ ping
 ### Server → Client
 
 ```
-room_joined
-room_state
+room_joined (includes reconnect_token)
+room_state (authoritative position)
 sync_state
 user_joined
+user_reconnected
+user_disconnected
 user_left
-pong
 error
 ```
