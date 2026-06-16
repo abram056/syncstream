@@ -255,6 +255,30 @@ func (h *Hub) HandleSeek(client *Client, position float64) error {
 	return h.broadcastRoomState("sync_state")
 }
 
+// HandleLeaveRoom permanently removes a participant from the room and broadcasts user_left.
+// This is distinct from a websocket disconnect, which only marks the participant as disconnected
+// and broadcasts user_disconnected. A leave is an explicit intent to depart.
+func (h *Hub) HandleLeaveRoom(client *Client) error {
+	if client.ParticipantID == "" {
+		return nil
+	}
+
+	if err := h.manager.RemoveParticipant(h.roomID, client.ParticipantID); err != nil {
+		return err
+	}
+
+	evt := map[string]interface{}{
+		"type":        "user_left",
+		"userId":      client.ParticipantID,
+		"displayName": client.DisplayName,
+	}
+	if msg, err := json.Marshal(evt); err == nil {
+		h.Broadcast(msg)
+	}
+
+	return h.broadcastRoomState("room_state")
+}
+
 func (h *Hub) broadcastRoomState(eventType string) error {
 	r, err := h.manager.GetRoomByID(h.roomID)
 	if err != nil {

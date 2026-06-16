@@ -151,6 +151,15 @@ func (c *Client) handleEvent(evt map[string]interface{}) error {
 			return err
 		}
 
+	case "leave_room":
+		if !c.Joined {
+			return ErrInvalidEvent
+		}
+		if err := c.Hub.HandleLeaveRoom(c); err != nil {
+			return err
+		}
+		c.Joined = false
+
 	case "ping":
 		pong := map[string]interface{}{"type": "pong"}
 		if msg, err := json.Marshal(pong); err == nil {
