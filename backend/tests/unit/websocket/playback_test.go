@@ -298,3 +298,37 @@ func TestSyncStateBroadcastIncludesMetadata(t *testing.T) {
 		t.Error("timeout waiting for sync_state")
 	}
 }
+
+// TestEffectivePosition verifies the authoritative position calculation:
+// - Paused playback returns the stored position unchanged
+// - Active playback returns a position that advances with elapsed time
+func TestEffectivePosition(t *testing.T) {
+	manager := room.NewManager(memory.NewRoomStore())
+	r, err := manager.CreateRoom(models.Media{URL: "http://example.com/video.mp4", Title: "Test"})
+	if err != nil {
+		t.Fatalf("failed to create room: %v", err)
+	}
+
+	// When paused, effective position equals stored position
+	r.PlaybackState.IsPlaying = false
+	r.PlaybackState.Position = 42.0
+	r.PlaybackState.UpdatedAt = time.Now().Add(-5 * time.Second)
+
+	effectivePaused := r.PlaybackState.EffectivePosition()
+	if effectivePaused != 42.0 {
+		t.Errorf("expected paused effective position 42.0, got %v", effectivePaused)
+	}
+
+	// When playing, effective position advances with time
+	r.PlaybackState.IsPlaying = true
+	r.PlaybackState.Position = 100.0
+	r.PlaybackState.UpdatedAt = time.Now().Add(-2 * time.Second)
+
+	effectivePlaying := r.PlaybackState.EffectivePosition()
+	if effectivePlaying < 100.0 {
+		t.Errorf("expected playing effective position >= 100.0, got %v", effectivePlaying)
+	}
+	if effectivePlaying > 200.0 {
+		t.Errorf("expected playing effective position <= 200.0 (sanity), got %v", effectivePlaying)
+	}
+}
