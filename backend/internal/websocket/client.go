@@ -160,12 +160,6 @@ func (c *Client) handleEvent(evt map[string]interface{}) error {
 		}
 		c.Joined = false
 
-	case "ping":
-		pong := map[string]interface{}{"type": "pong"}
-		if msg, err := json.Marshal(pong); err == nil {
-			c.Send <- msg
-		}
-
 	default:
 		return ErrUnknownEvent
 	}
