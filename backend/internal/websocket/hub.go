@@ -168,13 +168,15 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 		return err
 	}
 
+	effectivePos := r.PlaybackState.EffectivePosition()
+
 	roomState := map[string]interface{}{
 		"type":              "room_state",
 		"roomId":            r.ID,
 		"status":            string(r.Status),
 		"mediaUrl":          r.Media.URL,
 		"isPlaying":         r.PlaybackState.IsPlaying,
-		"position":          r.PlaybackState.Position,
+		"position":          effectivePos,
 		"numOfParticipants": len(r.Participants),
 	}
 	if msg, err := json.Marshal(roomState); err == nil {
@@ -285,13 +287,15 @@ func (h *Hub) broadcastRoomState(eventType string) error {
 		return err
 	}
 
+	effectivePos := r.PlaybackState.EffectivePosition()
+
 	roomState := map[string]interface{}{
 		"type":              eventType,
 		"roomId":            r.ID,
 		"status":            string(r.Status),
 		"mediaUrl":          r.Media.URL,
 		"isPlaying":         r.PlaybackState.IsPlaying,
-		"position":          r.PlaybackState.Position,
+		"position":          effectivePos,
 		"updatedBy":         r.PlaybackState.UpdatedBy,
 		"updatedAt":         r.PlaybackState.UpdatedAt.UnixNano() / int64(time.Millisecond),
 		"numOfParticipants": len(r.Participants),

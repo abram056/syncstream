@@ -128,7 +128,7 @@ func (h *Handler) GetRoom(w http.ResponseWriter, r *http.Request) {
 		MediaURL:     roomData.Media.URL,
 		Title:        roomData.Media.Title,
 		IsPlaying:    roomData.PlaybackState.IsPlaying,
-		Position:     roomData.PlaybackState.Position,
+		Position:     roomData.PlaybackState.EffectivePosition(),
 		Participants: len(roomData.Participants),
 	}
 
