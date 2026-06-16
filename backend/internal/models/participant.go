@@ -7,5 +7,6 @@ type Participant struct {
 	DisplayName string
 	Connected   bool
 	JoinedAt    time.Time
+	LastSeen    time.Time
 	CanControl  bool
 }
