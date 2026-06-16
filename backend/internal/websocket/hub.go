@@ -49,20 +49,18 @@ func (h *Hub) Run() {
 				close(client.Send)
 				h.mu.Unlock()
 
-				// remove participant from room
+				// On websocket disconnect, mark participant as disconnected but keep them in the room.
+				// They can reconnect within the grace period to resume their session.
+				// If they do not reconnect in time, the participant expiration cleanup
+				// will permanently remove them and broadcast user_left.
 				if client.ParticipantID != "" {
-					p, err := h.manager.GetParticipant(h.roomID, client.ParticipantID)
-					if err != nil {
-						log.Printf("failed to get participant: %v", err)
-					}
-					if p != nil {
-						p.LastSeen = time.Now()
-						p.Connected = false
+					if err := h.manager.DisconnectParticipant(h.roomID, client.ParticipantID); err != nil {
+						log.Printf("failed to disconnect participant: %v", err)
 					}
 
-					// broadcast user_left to remaining clients
+					// broadcast user_disconnected to remaining clients
 					evt := map[string]interface{}{
-						"type":        "user_left", // TODO: change to user_disconnected
+						"type":        "user_disconnected",
 						"userId":      client.ParticipantID,
 						"displayName": client.DisplayName,
 					}
@@ -71,7 +69,7 @@ func (h *Hub) Run() {
 					}
 
 					if err := h.broadcastRoomState("room_state"); err != nil {
-						log.Printf("failed to broadcast room_state after leave: %v", err)
+						log.Printf("failed to broadcast room_state after disconnect: %v", err)
 					}
 				}
 

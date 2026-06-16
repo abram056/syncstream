@@ -11,6 +11,12 @@ import (
 	"github.com/abram056/syncstream/backend/internal/models"
 )
 
+var (
+	ErrRoomNotFound       = errors.New("room not found")
+	ErrRoomAlreadyExists  = errors.New("room already exists")
+	ErrParticipantNotFound = errors.New("participant not found")
+)
+
 type Manager struct {
 	repo Repository
 }
@@ -18,9 +24,6 @@ type Manager struct {
 func NewManager(repo Repository) *Manager {
 	return &Manager{repo: repo}
 }
-
-var ErrRoomNotFound = errors.New("room not found")
-var ErrRoomAlreadyExists = errors.New("room already exists")
 
 func (m *Manager) CreateRoom(media models.Media) (*models.Room, error) {
 	room := &models.Room{
@@ -112,7 +115,7 @@ func (m *Manager) RemoveParticipant(roomID, participantID string) error {
 	}
 
 	if _, ok := r.Participants[participantID]; !ok {
-		return fmt.Errorf("participant %s not found", participantID)
+		return ErrParticipantNotFound
 	}
 
 	delete(r.Participants, participantID)
@@ -121,6 +124,27 @@ func (m *Manager) RemoveParticipant(roomID, participantID string) error {
 	if len(r.Participants) == 0 {
 		r.Status = models.Idle
 	}
+
+	return nil
+}
+
+// DisconnectParticipant marks a participant as disconnected but keeps them in the room.
+// The participant can reconnect within the grace period to resume their session.
+// If they do not reconnect in time, the expiration cleanup will permanently remove them.
+func (m *Manager) DisconnectParticipant(roomID, participantID string) error {
+	r, err := m.repo.GetRoomByID(roomID)
+	if err != nil {
+		return ErrRoomNotFound
+	}
+
+	p, ok := r.Participants[participantID]
+	if !ok {
+		return ErrParticipantNotFound
+	}
+
+	p.Connected = false
+	p.LastSeen = time.Now()
+	r.LastActiveAt = time.Now()
 
 	return nil
 }
