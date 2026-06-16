@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 type RoomStatus string
 
@@ -11,6 +14,7 @@ const (
 )
 
 type Room struct {
+	mu            sync.RWMutex
 	ID            string
 	Status        RoomStatus
 	Media         Media

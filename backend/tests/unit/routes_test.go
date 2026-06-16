@@ -7,14 +7,22 @@ import (
 	"testing"
 
 	"github.com/abram056/syncstream/backend/internal/api"
+	"github.com/abram056/syncstream/backend/internal/room"
+	memory "github.com/abram056/syncstream/backend/internal/storage/memory"
 )
 
 type healthResponse struct {
 	Status string `json:"status"`
 }
 
+func newTestRouter() http.Handler {
+	repo := memory.NewRoomStore()
+	manager := room.NewManager(repo)
+	return api.NewRouter(manager)
+}
+
 func TestHealthRoute(t *testing.T) {
-	router := api.NewRouter()
+	router := newTestRouter()
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	res := httptest.NewRecorder()
@@ -36,7 +44,7 @@ func TestHealthRoute(t *testing.T) {
 }
 
 func TestCreateRoomMethodNotAllowed(t *testing.T) {
-	router := api.NewRouter()
+	router := newTestRouter()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/rooms", nil)
 	res := httptest.NewRecorder()
@@ -49,7 +57,7 @@ func TestCreateRoomMethodNotAllowed(t *testing.T) {
 }
 
 func TestCreateRoomBadRequest(t *testing.T) {
-	router := api.NewRouter()
+	router := newTestRouter()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", nil)
 	res := httptest.NewRecorder()
