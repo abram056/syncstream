@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/abram056/syncstream/backend/internal/models"
@@ -107,6 +108,64 @@ func (m *Manager) RemoveParticipant(roomID, participantID string) error {
 	}
 
 	return nil
+}
+
+func (m *Manager) Play(roomID, participantID string) (*models.Room, error) {
+	r, err := m.repo.GetRoomByID(roomID)
+	if err != nil {
+		return nil, ErrRoomNotFound
+	}
+
+	if _, ok := r.Participants[participantID]; !ok {
+		return nil, fmt.Errorf("participant %s not found", participantID)
+	}
+
+	r.PlaybackState.IsPlaying = true
+	r.PlaybackState.UpdatedBy = participantID
+	r.PlaybackState.UpdatedAt = time.Now()
+	r.LastActiveAt = time.Now()
+
+	return r, nil
+}
+
+func (m *Manager) Pause(roomID, participantID string) (*models.Room, error) {
+	r, err := m.repo.GetRoomByID(roomID)
+	if err != nil {
+		return nil, ErrRoomNotFound
+	}
+
+	if _, ok := r.Participants[participantID]; !ok {
+		return nil, fmt.Errorf("participant %s not found", participantID)
+	}
+
+	r.PlaybackState.IsPlaying = false
+	r.PlaybackState.UpdatedBy = participantID
+	r.PlaybackState.UpdatedAt = time.Now()
+	r.LastActiveAt = time.Now()
+
+	return r, nil
+}
+
+func (m *Manager) Seek(roomID, participantID string, position float64) (*models.Room, error) {
+	if position < 0 || math.IsNaN(position) || math.IsInf(position, 0) {
+		return nil, fmt.Errorf("invalid position %v", position)
+	}
+
+	r, err := m.repo.GetRoomByID(roomID)
+	if err != nil {
+		return nil, ErrRoomNotFound
+	}
+
+	if _, ok := r.Participants[participantID]; !ok {
+		return nil, fmt.Errorf("participant %s not found", participantID)
+	}
+
+	r.PlaybackState.Position = position
+	r.PlaybackState.UpdatedBy = participantID
+	r.PlaybackState.UpdatedAt = time.Now()
+	r.LastActiveAt = time.Now()
+
+	return r, nil
 }
 
 // CleanupIdleRooms removes rooms that are idle for longer than threshold.
