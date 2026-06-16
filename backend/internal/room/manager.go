@@ -80,6 +80,9 @@ func (m *Manager) AddParticipant(roomID, participantID, displayName string) (*mo
 		return nil, ErrRoomNotFound
 	}
 
+	r.Lock()
+	defer r.Unlock()
+
 	// if participant already exists, mark connected
 	if p, ok := r.Participants[participantID]; ok {
 		p.Connected = true
@@ -113,6 +116,9 @@ func (m *Manager) ReconnectParticipant(roomID, participantID, token string) (*mo
 		return nil, ErrRoomNotFound
 	}
 
+	r.Lock()
+	defer r.Unlock()
+
 	p, ok := r.Participants[participantID]
 	if !ok {
 		return nil, ErrParticipantNotFound
@@ -136,13 +142,15 @@ func (m *Manager) GetParticipant(roomID, participantID string) (*models.Particip
 		return nil, ErrRoomNotFound
 	}
 
+	r.RLock()
+	defer r.RUnlock()
+
 	p, ok := r.Participants[participantID]
 	if !ok {
 		return nil, fmt.Errorf("participant %s not found", participantID)
 	}
 
 	return p, nil
-
 }
 
 // RemoveParticipant removes a participant and updates room status.
@@ -151,6 +159,9 @@ func (m *Manager) RemoveParticipant(roomID, participantID string) error {
 	if err != nil {
 		return ErrRoomNotFound
 	}
+
+	r.Lock()
+	defer r.Unlock()
 
 	if _, ok := r.Participants[participantID]; !ok {
 		return ErrParticipantNotFound
@@ -175,6 +186,9 @@ func (m *Manager) DisconnectParticipant(roomID, participantID string) error {
 		return ErrRoomNotFound
 	}
 
+	r.Lock()
+	defer r.Unlock()
+
 	p, ok := r.Participants[participantID]
 	if !ok {
 		return ErrParticipantNotFound
@@ -193,6 +207,9 @@ func (m *Manager) Play(roomID, participantID string) (*models.Room, error) {
 		return nil, ErrRoomNotFound
 	}
 
+	r.Lock()
+	defer r.Unlock()
+
 	if _, ok := r.Participants[participantID]; !ok {
 		return nil, fmt.Errorf("participant %s not found", participantID)
 	}
@@ -210,6 +227,9 @@ func (m *Manager) Pause(roomID, participantID string) (*models.Room, error) {
 	if err != nil {
 		return nil, ErrRoomNotFound
 	}
+
+	r.Lock()
+	defer r.Unlock()
 
 	if _, ok := r.Participants[participantID]; !ok {
 		return nil, fmt.Errorf("participant %s not found", participantID)
@@ -233,6 +253,9 @@ func (m *Manager) Seek(roomID, participantID string, position float64) (*models.
 		return nil, ErrRoomNotFound
 	}
 
+	r.Lock()
+	defer r.Unlock()
+
 	if _, ok := r.Participants[participantID]; !ok {
 		return nil, fmt.Errorf("participant %s not found", participantID)
 	}
@@ -254,7 +277,10 @@ func (m *Manager) CleanupIdleRooms(threshold time.Duration) ([]string, error) {
 	now := time.Now()
 	var removed []string
 	for _, r := range rooms {
-		if r.Status == models.Idle && now.Sub(r.LastActiveAt) > threshold {
+		r.RLock()
+		isIdle := r.Status == models.Idle && now.Sub(r.LastActiveAt) > threshold
+		r.RUnlock()
+		if isIdle {
 			if err := m.repo.DeleteRoom(r.ID); err == nil {
 				removed = append(removed, r.ID)
 			}

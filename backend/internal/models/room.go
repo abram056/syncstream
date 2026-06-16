@@ -23,3 +23,9 @@ type Room struct {
 	CreatedAt     time.Time
 	LastActiveAt  time.Time
 }
+
+func (r *Room) Lock()   { r.mu.Lock() }
+func (r *Room) Unlock() { r.mu.Unlock() }
+
+func (r *Room) RLock()   { r.mu.RLock() }
+func (r *Room) RUnlock() { r.mu.RUnlock() }
