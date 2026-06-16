@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -11,36 +12,70 @@ import (
 )
 
 func main() {
+	cfg := room.DefaultConfig()
+
 	// create repository and manager shared across handlers and background tasks
 	repo := memory.NewRoomStore()
 	manager := room.NewManager(repo)
 
-	router := api.NewRouter(manager)
-	server := &http.Server{
+	srv := api.NewServer(manager)
+	hubReg := srv.HubRegistry
+
+	httpServer := &http.Server{
 		Addr:         ":8080",
-		Handler:      router,
+		Handler:      srv.Handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// background cleanup ticker: remove idle rooms older than 1 hour every 30 minutes
-	ticker := time.NewTicker(30 * time.Minute)
+	// background participant expiration: periodically remove stale disconnected participants
 	go func() {
+		ticker := time.NewTicker(cfg.CleanupInterval)
+		defer ticker.Stop()
 		for range ticker.C {
-			removed, err := manager.CleanupIdleRooms(1 * time.Hour)
-			if err != nil {
-				log.Printf("room cleanup error: %v", err)
-				continue
-			}
-			if len(removed) > 0 {
-				log.Printf("cleaned up rooms: %v", removed)
+			expired := manager.ExpireParticipants(cfg.ParticipantGracePeriod)
+			for roomID, participantIDs := range expired {
+				for _, pid := range participantIDs {
+					log.Printf("expired participant %s from room %s", pid, roomID)
+				}
+				// Broadcast user_left for expired participants via the room's hub
+				if hub := hubReg.Get(roomID); hub != nil {
+					for _, pid := range participantIDs {
+						evt := map[string]interface{}{
+							"type":   "user_left",
+							"userId": pid,
+						}
+						if msg, err := json.Marshal(evt); err == nil {
+							hub.Broadcast(msg)
+						}
+					}
+					hub.BroadcastRoomState("room_state")
+				}
 			}
 		}
 	}()
 
-	log.Printf("starting server on %s", server.Addr)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	// background idle room cleanup: remove inactive rooms after the configured timeout
+	go func() {
+		ticker := time.NewTicker(cfg.CleanupInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			removed, err := manager.CleanupIdleRooms(cfg.RoomIdleTimeout)
+			if err != nil {
+				log.Printf("room cleanup error: %v", err)
+				continue
+			}
+			for _, roomID := range removed {
+				// When a room is removed, also clean up its hub to prevent resource leaks
+				hubReg.Remove(roomID)
+				log.Printf("cleaned up idle room %s", roomID)
+			}
+		}
+	}()
+
+	log.Printf("starting server on %s", httpServer.Addr)
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server failed: %v", err)
 	}
 }

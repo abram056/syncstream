@@ -18,6 +18,7 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 	mu         sync.RWMutex
+	done       chan struct{}
 }
 
 // NewHub creates a new hub for a room.
@@ -29,13 +30,35 @@ func NewHub(roomID string, manager *room.Manager) *Hub {
 		broadcast:  make(chan []byte, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		done:       make(chan struct{}),
 	}
 }
 
+// Stop signals the hub's Run goroutine to shut down cleanly.
+// It closes all client connections and releases hub resources.
+func (h *Hub) Stop() {
+	close(h.done)
+}
+
 // Run starts the hub's event loop.
+// The loop exits when the done channel is closed (via Stop()).
+// All client connections are cleaned up on exit.
 func (h *Hub) Run() {
 	for {
 		select {
+		case <-h.done:
+			// Hub is shutting down. Close all client connections.
+			h.mu.Lock()
+			for client := range h.clients {
+				close(client.Send)
+				if client.Conn != nil {
+					client.Conn.Close()
+				}
+			}
+			h.clients = make(map[*Client]bool)
+			h.mu.Unlock()
+			return
+
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
@@ -279,6 +302,13 @@ func (h *Hub) HandleLeaveRoom(client *Client) error {
 	}
 
 	return h.broadcastRoomState("room_state")
+}
+
+// BroadcastRoomState fetches the current room state and broadcasts it to all
+// connected clients. This is used by cleanup services to notify participants
+// of state changes (e.g., after participant expiration).
+func (h *Hub) BroadcastRoomState(eventType string) error {
+	return h.broadcastRoomState(eventType)
 }
 
 func (h *Hub) broadcastRoomState(eventType string) error {

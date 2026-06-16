@@ -288,3 +288,28 @@ func (m *Manager) CleanupIdleRooms(threshold time.Duration) ([]string, error) {
 	}
 	return removed, nil
 }
+
+// ExpireParticipants removes participants whose disconnect grace period has expired.
+// Returns a map of roomID to list of expired participant IDs so the caller can
+// broadcast user_left events for each expired participant.
+func (m *Manager) ExpireParticipants(gracePeriod time.Duration) map[string][]string {
+	rooms, err := m.repo.ListRooms()
+	if err != nil {
+		return nil
+	}
+	expired := make(map[string][]string)
+	for _, r := range rooms {
+		r.Lock()
+		for id, p := range r.Participants {
+			if p.IsExpired(gracePeriod) {
+				delete(r.Participants, id)
+				expired[r.ID] = append(expired[r.ID], id)
+			}
+		}
+		if len(r.Participants) == 0 {
+			r.Status = models.Idle
+		}
+		r.Unlock()
+	}
+	return expired
+}

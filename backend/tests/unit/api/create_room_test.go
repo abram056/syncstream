@@ -19,7 +19,7 @@ type createRoomResponse struct {
 func newTestRouter() http.Handler {
 	repo := memory.NewRoomStore()
 	manager := room.NewManager(repo)
-	return api.NewRouter(manager)
+	return api.NewServer(manager).Handler
 }
 
 func TestCreateRoomEndpoint(t *testing.T) {

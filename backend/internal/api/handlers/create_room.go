@@ -42,6 +42,10 @@ func NewHandler(manager *room.Manager) *Handler {
 	}
 }
 
+func (h *Handler) HubRegistry() *ws.HubRegistry {
+	return h.wsHandler.HubRegistry()
+}
+
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

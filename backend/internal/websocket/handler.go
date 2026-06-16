@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/abram056/syncstream/backend/internal/room"
 	"github.com/gorilla/websocket"
@@ -18,18 +17,25 @@ var (
 			return true // Allow all origins for MVP
 		},
 	}
-	hubs  = make(map[string]*Hub)
-	hubMu sync.RWMutex
 )
 
 // Handler handles WebSocket upgrade requests and room connections.
 type Handler struct {
 	manager *room.Manager
+	hubReg  *HubRegistry
 }
 
 // NewHandler creates a new WebSocket handler.
 func NewHandler(manager *room.Manager) *Handler {
-	return &Handler{manager: manager}
+	return &Handler{
+		manager: manager,
+		hubReg:  NewHubRegistry(),
+	}
+}
+
+// HubRegistry returns the handler's hub registry for use by cleanup services.
+func (h *Handler) HubRegistry() *HubRegistry {
+	return h.hubReg
 }
 
 // ServeWS handles WebSocket connections.
@@ -66,7 +72,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get or create hub for this room
-	hub := getOrCreateHub(roomID, h.manager)
+	hub := h.hubReg.GetOrCreate(roomID, h.manager)
 
 	// Create client and register
 	client := NewClient(hub, conn)
@@ -75,19 +81,4 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	// Start read/write pumps
 	go client.WritePump()
 	go client.ReadPump()
-}
-
-// getOrCreateHub gets an existing hub or creates a new one for a room.
-func getOrCreateHub(roomID string, manager *room.Manager) *Hub {
-	hubMu.Lock()
-	defer hubMu.Unlock()
-
-	if hub, ok := hubs[roomID]; ok {
-		return hub
-	}
-
-	hub := NewHub(roomID, manager)
-	hubs[roomID] = hub
-	go hub.Run()
-	return hub
 }

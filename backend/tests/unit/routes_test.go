@@ -18,7 +18,7 @@ type healthResponse struct {
 func newTestRouter() http.Handler {
 	repo := memory.NewRoomStore()
 	manager := room.NewManager(repo)
-	return api.NewRouter(manager)
+	return api.NewServer(manager).Handler
 }
 
 func TestHealthRoute(t *testing.T) {
