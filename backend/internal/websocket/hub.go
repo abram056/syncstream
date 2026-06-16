@@ -118,22 +118,46 @@ func (h *Hub) UnregisterClient(client *Client) {
 }
 
 // HandleJoinRoom processes a join_room event.
+// If the event includes a reconnect_token and participant_id, the server attempts
+// to restore the previous session rather than creating a new participant.
+// This allows clients to survive temporary disconnects without losing their identity.
 func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 	displayName, ok := getDisplayName(evt)
 	if !ok || displayName == "" {
 		return ErrInvalidEvent
 	}
 
-	participant, err := h.manager.AddParticipant(h.roomID, client.ParticipantID, displayName)
-	if err != nil {
-		return err
+	// Check for reconnect attempt
+	reconnectToken, _ := evt["reconnect_token"].(string)
+	if reconnectToken == "" {
+		reconnectToken, _ = evt["reconnectToken"].(string)
 	}
 
-	client.DisplayName = participant.DisplayName
+	var wasReconnect bool
+	var reconnectTokenValue string
+
+	if reconnectToken != "" && client.ParticipantID != "" {
+		p, err := h.manager.ReconnectParticipant(h.roomID, client.ParticipantID, reconnectToken)
+		if err == nil {
+			client.DisplayName = p.DisplayName
+			reconnectTokenValue = p.ReconnectToken
+			wasReconnect = true
+		}
+	}
+
+	if !wasReconnect {
+		p, err := h.manager.AddParticipant(h.roomID, client.ParticipantID, displayName)
+		if err != nil {
+			return err
+		}
+		client.DisplayName = p.DisplayName
+		reconnectTokenValue = p.ReconnectToken
+	}
 
 	roomJoined := map[string]interface{}{
-		"type":   "room_joined",
-		"roomId": h.roomID,
+		"type":            "room_joined",
+		"roomId":          h.roomID,
+		"reconnect_token": reconnectTokenValue,
 	}
 	if msg, err := json.Marshal(roomJoined); err == nil {
 		client.Send <- msg
@@ -157,13 +181,25 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 		client.Send <- msg
 	}
 
-	userJoined := map[string]interface{}{
-		"type":        "user_joined",
-		"userId":      client.ParticipantID,
-		"displayName": displayName,
-	}
-	if msg, err := json.Marshal(userJoined); err == nil {
-		h.Broadcast(msg)
+	// Broadcast appropriate event based on whether this is a new join or a reconnect
+	if wasReconnect {
+		userReconnected := map[string]interface{}{
+			"type":        "user_reconnected",
+			"userId":      client.ParticipantID,
+			"displayName": displayName,
+		}
+		if msg, err := json.Marshal(userReconnected); err == nil {
+			h.Broadcast(msg)
+		}
+	} else {
+		userJoined := map[string]interface{}{
+			"type":        "user_joined",
+			"userId":      client.ParticipantID,
+			"displayName": displayName,
+		}
+		if msg, err := json.Marshal(userJoined); err == nil {
+			h.Broadcast(msg)
+		}
 	}
 
 	if err := h.broadcastRoomState("room_state"); err != nil {

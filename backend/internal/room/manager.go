@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	ErrRoomNotFound       = errors.New("room not found")
-	ErrRoomAlreadyExists  = errors.New("room already exists")
-	ErrParticipantNotFound = errors.New("participant not found")
+	ErrRoomNotFound         = errors.New("room not found")
+	ErrRoomAlreadyExists    = errors.New("room already exists")
+	ErrParticipantNotFound  = errors.New("participant not found")
+	ErrReconnectTokenInvalid = errors.New("invalid reconnect token")
 )
 
 type Manager struct {
@@ -63,7 +64,16 @@ func generateRoomID() string {
 	return "rm-" + hex.EncodeToString(buf)
 }
 
+func generateReconnectToken() string {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return time.Now().Format("rt20060102150405")
+	}
+	return hex.EncodeToString(buf)
+}
+
 // AddParticipant adds a participant to the room and updates room status.
+// Generates a reconnect token for potential future reconnection.
 func (m *Manager) AddParticipant(roomID, participantID, displayName string) (*models.Participant, error) {
 	r, err := m.repo.GetRoomByID(roomID)
 	if err != nil {
@@ -80,12 +90,40 @@ func (m *Manager) AddParticipant(roomID, participantID, displayName string) (*mo
 	}
 
 	p := &models.Participant{
-		ID:          participantID,
-		DisplayName: displayName,
-		Connected:   true,
-		JoinedAt:    time.Now(),
+		ID:             participantID,
+		DisplayName:    displayName,
+		Connected:      true,
+		JoinedAt:       time.Now(),
+		ReconnectToken: generateReconnectToken(),
 	}
 	r.Participants[participantID] = p
+	r.LastActiveAt = time.Now()
+	r.Status = models.Active
+
+	return p, nil
+}
+
+// ReconnectParticipant validates the reconnect token and restores the participant's session.
+// The participant must exist in the room and the token must match.
+// On success, the participant is marked as connected and their LastSeen is updated.
+// This preserves the participant's original identity, display name, and permissions.
+func (m *Manager) ReconnectParticipant(roomID, participantID, token string) (*models.Participant, error) {
+	r, err := m.repo.GetRoomByID(roomID)
+	if err != nil {
+		return nil, ErrRoomNotFound
+	}
+
+	p, ok := r.Participants[participantID]
+	if !ok {
+		return nil, ErrParticipantNotFound
+	}
+
+	if p.ReconnectToken == "" || p.ReconnectToken != token {
+		return nil, ErrReconnectTokenInvalid
+	}
+
+	p.Connected = true
+	p.LastSeen = time.Now()
 	r.LastActiveAt = time.Now()
 	r.Status = models.Active
 
