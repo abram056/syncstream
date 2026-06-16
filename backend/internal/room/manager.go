@@ -89,6 +89,21 @@ func (m *Manager) AddParticipant(roomID, participantID, displayName string) (*mo
 	return p, nil
 }
 
+func (m *Manager) GetParticipant(roomID, participantID string) (*models.Participant, error) {
+	r, err := m.repo.GetRoomByID(roomID)
+	if err != nil {
+		return nil, ErrRoomNotFound
+	}
+
+	p, ok := r.Participants[participantID]
+	if !ok {
+		return nil, fmt.Errorf("participant %s not found", participantID)
+	}
+
+	return p, nil
+
+}
+
 // RemoveParticipant removes a participant and updates room status.
 func (m *Manager) RemoveParticipant(roomID, participantID string) error {
 	r, err := m.repo.GetRoomByID(roomID)

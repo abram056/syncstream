@@ -51,13 +51,18 @@ func (h *Hub) Run() {
 
 				// remove participant from room
 				if client.ParticipantID != "" {
-					if err := h.manager.RemoveParticipant(h.roomID, client.ParticipantID); err != nil {
-						log.Printf("failed to remove participant: %v", err)
+					p, err := h.manager.GetParticipant(h.roomID, client.ParticipantID)
+					if err != nil {
+						log.Printf("failed to get participant: %v", err)
+					}
+					if p != nil {
+						p.LastSeen = time.Now()
+						p.Connected = false
 					}
 
 					// broadcast user_left to remaining clients
 					evt := map[string]interface{}{
-						"type":        "user_left",
+						"type":        "user_left", // TODO: change to user_disconnected
 						"userId":      client.ParticipantID,
 						"displayName": client.DisplayName,
 					}
