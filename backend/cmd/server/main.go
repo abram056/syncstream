@@ -3,15 +3,18 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/abram056/syncstream/backend/internal/api"
+	"github.com/abram056/syncstream/backend/internal/logger"
 	"github.com/abram056/syncstream/backend/internal/room"
 	memory "github.com/abram056/syncstream/backend/internal/storage/memory"
 )
 
 func main() {
+	logger.Init()
 	cfg := room.DefaultConfig()
 
 	// create repository and manager shared across handlers and background tasks
