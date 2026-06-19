@@ -170,7 +170,7 @@ export function Room() {
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
       {view === 'lobby' ? (
-        <Lobby onStartWatching={handleStartWatching} />
+        <Lobby onStartWatching={handleStartWatching} roomId={effectiveRoomId} />
       ) : (
         <div className="flex flex-1 flex-col">
           {mediaUrl && (

@@ -7,13 +7,13 @@ import { useRoomStore } from '../stores/roomStore'
 
 interface Props {
   onStartWatching: () => void
+  roomId: string
 }
 
-export function Lobby({ onStartWatching }: Props) {
+export function Lobby({ onStartWatching, roomId }: Props) {
   const [showParticipants, setShowParticipants] = useState(false)
   const [copied, setCopied] = useState(false)
   const participants = useRoomStore((s) => s.participants)
-  const roomId = useRoomStore((s) => s.roomId)
 
   const copyRoomLink = () => {
     const link = `${window.location.origin}/room/${roomId}`

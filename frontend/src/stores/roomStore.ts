@@ -64,9 +64,9 @@ export const useRoomStore = create<RoomStore>((set) => ({
 
   reset: () => set(initialState),
   resetRuntime: () =>
-    set((state) => ({
+    set({
       roomStatus: null,
       view: 'lobby' as RoomView,
       participants: [],
-    })),
+    }),
 }))
