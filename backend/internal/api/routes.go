@@ -23,7 +23,7 @@ func NewServer(manager *room.Manager) *Server {
 	mux.HandleFunc("/api/v1/rooms/", routeRoomRequest(h))
 
 	return &Server{
-		Handler:     mux,
+		Handler:     LoggingMiddleware(mux),
 		HubRegistry: h.HubRegistry(),
 	}
 }
