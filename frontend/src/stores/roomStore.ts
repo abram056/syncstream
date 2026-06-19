@@ -18,6 +18,7 @@ interface RoomStore {
   removeParticipant: (userId: string) => void
   setParticipantConnected: (userId: string, connected: boolean) => void
   reset: () => void
+  resetRuntime: () => void
 }
 
 const initialState = {
@@ -62,4 +63,10 @@ export const useRoomStore = create<RoomStore>((set) => ({
     })),
 
   reset: () => set(initialState),
+  resetRuntime: () =>
+    set((state) => ({
+      roomStatus: null,
+      view: 'lobby' as RoomView,
+      participants: [],
+    })),
 }))

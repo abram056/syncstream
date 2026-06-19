@@ -26,7 +26,7 @@ export function Room() {
   const removeParticipant = useRoomStore((s) => s.removeParticipant)
   const setParticipantConnected = useRoomStore((s) => s.setParticipantConnected)
   const setRoomStatus = useRoomStore((s) => s.setRoomStatus)
-  const resetRoom = useRoomStore((s) => s.reset)
+  const resetRuntime = useRoomStore((s) => s.resetRuntime)
 
   const syncState = usePlaybackStore((s) => s.syncState)
   const isPlaying = usePlaybackStore((s) => s.isPlaying)
@@ -152,7 +152,7 @@ export function Room() {
   useEffect(() => {
     return () => {
       wsManager.disconnect()
-      resetRoom()
+      resetRuntime()
       resetPlayback()
       initialSyncDoneRef.current = false
     }
