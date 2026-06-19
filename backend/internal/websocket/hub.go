@@ -2,7 +2,7 @@ package websocket
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -63,7 +63,10 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
-			log.Printf("client registered in room %s, total: %d", h.roomID, len(h.clients))
+			slog.Info("client registered",
+				"room_id", h.roomID,
+				"total_clients", len(h.clients),
+			)
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -78,7 +81,11 @@ func (h *Hub) Run() {
 				// will permanently remove them and broadcast user_left.
 				if client.ParticipantID != "" {
 					if err := h.manager.DisconnectParticipant(h.roomID, client.ParticipantID); err != nil {
-						log.Printf("failed to disconnect participant: %v", err)
+						slog.Warn("failed to disconnect participant",
+							"room_id", h.roomID,
+							"participant_id", client.ParticipantID,
+							"error", err,
+						)
 					}
 
 					// broadcast user_disconnected to remaining clients
@@ -92,11 +99,17 @@ func (h *Hub) Run() {
 					}
 
 					if err := h.broadcastRoomState("room_state"); err != nil {
-						log.Printf("failed to broadcast room_state after disconnect: %v", err)
+						slog.Warn("failed to broadcast room_state after disconnect",
+							"room_id", h.roomID,
+							"error", err,
+						)
 					}
 				}
 
-				log.Printf("client unregistered from room %s, total: %d", h.roomID, len(h.clients))
+				slog.Info("client unregistered",
+					"room_id", h.roomID,
+					"total_clients", len(h.clients),
+				)
 			} else {
 				h.mu.Unlock()
 			}

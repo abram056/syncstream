@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"log/slog"
 	"net/http"
 	"time"
@@ -40,7 +39,10 @@ func main() {
 			expired := manager.ExpireParticipants(cfg.ParticipantGracePeriod)
 			for roomID, participantIDs := range expired {
 				for _, pid := range participantIDs {
-					log.Printf("expired participant %s from room %s", pid, roomID)
+					slog.Info("expired participant",
+						"participant_id", pid,
+						"room_id", roomID,
+					)
 				}
 				// Broadcast user_left for expired participants via the room's hub
 				if hub := hubReg.Get(roomID); hub != nil {
@@ -66,19 +68,18 @@ func main() {
 		for range ticker.C {
 			removed, err := manager.CleanupIdleRooms(cfg.RoomIdleTimeout)
 			if err != nil {
-				log.Printf("room cleanup error: %v", err)
+				slog.Error("room cleanup error", "error", err)
 				continue
 			}
 			for _, roomID := range removed {
-				// When a room is removed, also clean up its hub to prevent resource leaks
 				hubReg.Remove(roomID)
-				log.Printf("cleaned up idle room %s", roomID)
+				slog.Info("cleaned up idle room", "room_id", roomID)
 			}
 		}
 	}()
 
-	log.Printf("starting server on %s", httpServer.Addr)
+	slog.Info("starting server", "addr", httpServer.Addr)
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("server failed: %v", err)
+		slog.Error("server failed", "error", err)
 	}
 }

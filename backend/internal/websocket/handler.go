@@ -1,7 +1,7 @@
 package websocket
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -67,7 +67,10 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	// Upgrade to WebSocket
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("websocket upgrade error: %v", err)
+		slog.Warn("websocket upgrade error",
+			"room_id", roomID,
+			"error", err,
+		)
 		return
 	}
 

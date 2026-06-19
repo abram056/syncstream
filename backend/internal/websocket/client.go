@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -48,19 +48,31 @@ func (c *Client) ReadPump() {
 		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("websocket error: %v", err)
+				slog.Warn("websocket read error",
+					"room_id", c.Hub.roomID,
+					"participant_id", c.ParticipantID,
+					"error", err,
+				)
 			}
 			break
 		}
 
 		var evt map[string]interface{}
 		if err := json.Unmarshal(message, &evt); err != nil {
-			log.Printf("failed to decode event: %v", err)
+			slog.Warn("failed to decode event",
+				"room_id", c.Hub.roomID,
+				"participant_id", c.ParticipantID,
+				"error", err,
+			)
 			continue
 		}
 
 		if err := c.handleEvent(evt); err != nil {
-			log.Printf("event handler error: %v", err)
+			slog.Error("event handler error",
+				"room_id", c.Hub.roomID,
+				"participant_id", c.ParticipantID,
+				"error", err,
+			)
 		}
 	}
 }

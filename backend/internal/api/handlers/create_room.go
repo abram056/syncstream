@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -58,37 +58,37 @@ func (h *Handler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
-		fmt.Printf("CreateRoom: method %s not allowed\n", r.Method)
+		slog.Warn("CreateRoom: method not allowed", "method", r.Method)
 		return
 	}
 
 	var req createRoomRequest
-	fmt.Printf("Request: %s\n", r.RequestURI)
+	slog.Debug("CreateRoom: request", "uri", r.RequestURI)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid request payload"})
-		fmt.Printf("CreateRoom: failed to decode request body: %v\n", err)
+		slog.Warn("CreateRoom: failed to decode request body", "error", err)
 		return
 	}
 
 	if req.MediaURL == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "media_url is required"})
-		fmt.Println("CreateRoom: media_url is required")
+		slog.Warn("CreateRoom: media_url is required")
 		return
 	}
 
-	room, err := h.roomManager.CreateRoom(models.Media{URL: req.MediaURL, Title: req.Title})
+	createdRoom, err := h.roomManager.CreateRoom(models.Media{URL: req.MediaURL, Title: req.Title})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unable to create room"})
-		fmt.Printf("CreateRoom: failed to create room: %v\n", err)
+		slog.Error("CreateRoom: failed to create room", "error", err)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(createRoomResponse{RoomID: room.ID})
-	fmt.Printf("CreateRoom: room created with ID %s\n", room.ID)
+	_ = json.NewEncoder(w).Encode(createRoomResponse{RoomID: createdRoom.ID})
+	slog.Info("CreateRoom: room created", "room_id", createdRoom.ID)
 }
 
 func (h *Handler) GetRoom(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +97,7 @@ func (h *Handler) GetRoom(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
-		fmt.Printf("GetRoom: method %s not allowed\n", r.Method)
+		slog.Warn("GetRoom: method not allowed", "method", r.Method)
 		return
 	}
 
@@ -105,16 +105,16 @@ func (h *Handler) GetRoom(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(r.URL.Path, prefix) {
 		w.WriteHeader(http.StatusNotFound)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "room not found"})
-		fmt.Printf("GetRoom: room not found\n")
+		slog.Warn("GetRoom: room not found")
 		return
 	}
 
 	roomID := strings.TrimPrefix(r.URL.Path, prefix)
-	fmt.Printf("Fetching room ID from URL: %s\n", roomID)
+	slog.Debug("GetRoom: fetching room", "room_id", roomID)
 	if roomID == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "room_id is required"})
-		fmt.Printf("GetRoom: room_id is required\n")
+		slog.Warn("GetRoom: room_id is required")
 		return
 	}
 
@@ -122,7 +122,7 @@ func (h *Handler) GetRoom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "room not found"})
-		fmt.Printf("GetRoom: failed to get room: %v\n", err)
+		slog.Warn("GetRoom: failed to get room", "room_id", roomID, "error", err)
 		return
 	}
 
