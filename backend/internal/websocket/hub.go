@@ -96,6 +96,11 @@ func (h *Hub) Run() {
 					}
 					if msg, err := json.Marshal(evt); err == nil {
 						h.Broadcast(msg)
+					} else {
+						slog.Warn("failed to marshal user_disconnected event",
+							"room_id", h.roomID,
+							"error", err,
+						)
 					}
 
 					if err := h.broadcastRoomState("room_state"); err != nil {
@@ -120,7 +125,10 @@ func (h *Hub) Run() {
 				select {
 				case client.Send <- msg:
 				default:
-					// client send channel full, close it
+					slog.Warn("client send channel full, unregistering",
+						"room_id", h.roomID,
+						"participant_id", client.ParticipantID,
+					)
 					go func(c *Client) {
 						h.unregister <- c
 					}(client)
@@ -197,6 +205,11 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 	}
 	if msg, err := json.Marshal(roomJoined); err == nil {
 		client.Send <- msg
+	} else {
+		slog.Warn("failed to marshal room_joined event",
+			"room_id", h.roomID,
+			"error", err,
+		)
 	}
 
 	r, err := h.manager.GetRoomByID(h.roomID)
@@ -217,6 +230,11 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 	}
 	if msg, err := json.Marshal(roomState); err == nil {
 		client.Send <- msg
+	} else {
+		slog.Warn("failed to marshal room_state event",
+			"room_id", h.roomID,
+			"error", err,
+		)
 	}
 
 	// Broadcast appropriate event based on whether this is a new join or a reconnect
@@ -228,6 +246,11 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 		}
 		if msg, err := json.Marshal(userReconnected); err == nil {
 			h.Broadcast(msg)
+		} else {
+			slog.Warn("failed to marshal user_reconnected event",
+				"room_id", h.roomID,
+				"error", err,
+			)
 		}
 	} else {
 		userJoined := map[string]interface{}{
@@ -237,6 +260,11 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 		}
 		if msg, err := json.Marshal(userJoined); err == nil {
 			h.Broadcast(msg)
+		} else {
+			slog.Warn("failed to marshal user_joined event",
+				"room_id", h.roomID,
+				"error", err,
+			)
 		}
 	}
 
@@ -312,6 +340,11 @@ func (h *Hub) HandleLeaveRoom(client *Client) error {
 	}
 	if msg, err := json.Marshal(evt); err == nil {
 		h.Broadcast(msg)
+	} else {
+		slog.Warn("failed to marshal user_left event",
+			"room_id", h.roomID,
+			"error", err,
+		)
 	}
 
 	return h.broadcastRoomState("room_state")

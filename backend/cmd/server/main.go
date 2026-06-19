@@ -53,6 +53,12 @@ func main() {
 						}
 						if msg, err := json.Marshal(evt); err == nil {
 							hub.Broadcast(msg)
+						} else {
+							slog.Warn("failed to marshal user_left event for expired participant",
+								"room_id", roomID,
+								"participant_id", pid,
+								"error", err,
+							)
 						}
 					}
 					hub.BroadcastRoomState("room_state")

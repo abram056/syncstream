@@ -96,12 +96,22 @@ func (c *Client) WritePump() {
 			}
 
 			if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				slog.Warn("websocket write error",
+					"room_id", c.Hub.roomID,
+					"participant_id", c.ParticipantID,
+					"error", err,
+				)
 				return
 			}
 
 		case <-ticker.C:
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				slog.Warn("websocket ping error",
+					"room_id", c.Hub.roomID,
+					"participant_id", c.ParticipantID,
+					"error", err,
+				)
 				return
 			}
 		}
@@ -209,6 +219,7 @@ func getPositionField(evt map[string]interface{}) (float64, bool, error) {
 func generateParticipantID() string {
 	buf := make([]byte, 6)
 	if _, err := rand.Read(buf); err != nil {
+		slog.Warn("rand.Read failed, falling back to timestamp-based ID", "error", err)
 		return time.Now().Format("usr20060102150405")
 	}
 	return "usr-" + hex.EncodeToString(buf)

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"time"
 
@@ -59,6 +60,7 @@ func (m *Manager) GetRoomByID(id string) (*models.Room, error) {
 func generateRoomID() string {
 	buf := make([]byte, 6)
 	if _, err := rand.Read(buf); err != nil {
+		slog.Warn("rand.Read failed, falling back to timestamp-based room ID", "error", err)
 		return time.Now().Format("rm20060102150405")
 	}
 	return "rm-" + hex.EncodeToString(buf)
@@ -67,6 +69,7 @@ func generateRoomID() string {
 func generateReconnectToken() string {
 	buf := make([]byte, 16)
 	if _, err := rand.Read(buf); err != nil {
+		slog.Warn("rand.Read failed, falling back to timestamp-based reconnect token", "error", err)
 		return time.Now().Format("rt20060102150405")
 	}
 	return hex.EncodeToString(buf)
@@ -283,6 +286,8 @@ func (m *Manager) CleanupIdleRooms(threshold time.Duration) ([]string, error) {
 		if isIdle {
 			if err := m.repo.DeleteRoom(r.ID); err == nil {
 				removed = append(removed, r.ID)
+			} else {
+				slog.Warn("failed to delete idle room", "room_id", r.ID, "error", err)
 			}
 		}
 	}
