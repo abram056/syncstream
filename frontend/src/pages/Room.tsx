@@ -1,0 +1,193 @@
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { Button } from '../components/ui/button'
+import { Lobby } from '../components/Lobby'
+import { VideoPlayer } from '../components/VideoPlayer'
+import { ParticipantList } from '../components/ParticipantList'
+import { wsManager } from '../services/websocket/manager'
+import { useRoomStore } from '../stores/roomStore'
+import { usePlaybackStore } from '../stores/playbackStore'
+import { useConnectionStore } from '../stores/connectionStore'
+import type { ServerEvent } from '../types'
+
+export function Room() {
+  const { roomId } = useParams<{ roomId: string }>()
+  const navigate = useNavigate()
+  const [showParticipants, setShowParticipants] = useState(false)
+  const [pageError, setPageError] = useState('')
+  const initialSyncDoneRef = useRef(false)
+
+  const roomIdStored = useRoomStore((s) => s.roomId)
+  const mediaUrl = useRoomStore((s) => s.mediaUrl)
+  const localDisplayName = useRoomStore((s) => s.localDisplayName)
+  const view = useRoomStore((s) => s.view)
+  const setView = useRoomStore((s) => s.setView)
+  const addParticipant = useRoomStore((s) => s.addParticipant)
+  const removeParticipant = useRoomStore((s) => s.removeParticipant)
+  const setParticipantConnected = useRoomStore((s) => s.setParticipantConnected)
+  const setRoomStatus = useRoomStore((s) => s.setRoomStatus)
+  const resetRoom = useRoomStore((s) => s.reset)
+
+  const syncState = usePlaybackStore((s) => s.syncState)
+  const isPlaying = usePlaybackStore((s) => s.isPlaying)
+  const resetPlayback = usePlaybackStore((s) => s.reset)
+
+  const setConnectionStatus = useConnectionStore((s) => s.setStatus)
+  const incrementReconnect = useConnectionStore((s) => s.incrementReconnect)
+  const resetReconnect = useConnectionStore((s) => s.resetReconnect)
+
+  // Redirect if we don't have room context
+  useEffect(() => {
+    if (!roomIdStored && !roomId) {
+      navigate('/')
+    }
+  }, [roomIdStored, roomId, navigate])
+
+  const effectiveRoomId = roomId || roomIdStored || ''
+
+  // Set up WebSocket and event handlers
+  useEffect(() => {
+    if (!effectiveRoomId || !localDisplayName) return
+    if (initialSyncDoneRef.current) return
+
+    const handleEvent = (event: ServerEvent) => {
+      switch (event.type) {
+        case 'room_joined': {
+          break
+        }
+        case 'room_state': {
+          setRoomStatus(event.status)
+          syncState({
+            isPlaying: event.isPlaying,
+            position: event.position,
+            updatedBy: event.updatedBy || '',
+            updatedAt: event.updatedAt || Date.now(),
+          })
+          initialSyncDoneRef.current = true
+          break
+        }
+        case 'sync_state': {
+          syncState({
+            isPlaying: event.isPlaying,
+            position: event.position,
+            updatedBy: event.updatedBy,
+            updatedAt: event.updatedAt,
+          })
+          break
+        }
+        case 'user_joined': {
+          addParticipant(event.userId, event.displayName)
+          break
+        }
+        case 'user_reconnected': {
+          setParticipantConnected(event.userId, true)
+          break
+        }
+        case 'user_disconnected': {
+          setParticipantConnected(event.userId, false)
+          break
+        }
+        case 'user_left': {
+          removeParticipant(event.userId)
+          break
+        }
+        case 'error': {
+          setPageError(event.message)
+          break
+        }
+      }
+    }
+
+    const handleStatus = (status: string) => {
+      setConnectionStatus(status as 'disconnected' | 'connecting' | 'connected')
+      if (status === 'connected') {
+        resetReconnect()
+        // Send join_room
+        wsManager.send({
+          type: 'join_room',
+          room_id: effectiveRoomId,
+          display_name: localDisplayName,
+        })
+      } else if (status === 'disconnected') {
+        incrementReconnect()
+      }
+    }
+
+    const unsubEvent = wsManager.onEvent(handleEvent)
+    const unsubStatus = wsManager.onStatusChange(handleStatus)
+
+    wsManager.connect(effectiveRoomId, localDisplayName)
+
+    return () => {
+      unsubEvent()
+      unsubStatus()
+    }
+  }, [effectiveRoomId, localDisplayName])
+
+  const handleTogglePlay = useCallback(() => {
+    if (view === 'lobby') {
+      wsManager.send({
+        type: 'play',
+      })
+      setView('watching')
+    } else {
+      if (isPlaying) {
+        wsManager.send({ type: 'pause' })
+      } else {
+        wsManager.send({ type: 'play' })
+      }
+    }
+  }, [view, isPlaying, setView])
+
+  const handleSeek = useCallback((position: number) => {
+    wsManager.send({ type: 'seek', position })
+  }, [])
+
+  const handleStartWatching = useCallback(() => {
+    wsManager.send({ type: 'play' })
+    setView('watching')
+  }, [setView])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      wsManager.disconnect()
+      resetRoom()
+      resetPlayback()
+      initialSyncDoneRef.current = false
+    }
+  }, [])
+
+  if (pageError) {
+    return (
+      <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center gap-4">
+        <p className="text-red-400">{pageError}</p>
+        <Button onClick={() => navigate('/')}>Go Home</Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
+      {view === 'lobby' ? (
+        <Lobby onStartWatching={handleStartWatching} />
+      ) : (
+        <div className="flex flex-1 flex-col">
+          {mediaUrl && (
+            <VideoPlayer
+              mediaUrl={mediaUrl}
+              onTogglePlay={handleTogglePlay}
+              onSeek={handleSeek}
+              onShowParticipants={() => setShowParticipants(true)}
+            />
+          )}
+        </div>
+      )}
+
+      <ParticipantList
+        open={showParticipants}
+        onClose={() => setShowParticipants(false)}
+      />
+    </div>
+  )
+}
