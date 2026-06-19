@@ -120,6 +120,17 @@ func (h *Hub) Run() {
 			}
 
 		case msg := <-h.broadcast:
+			// log outgoing broadcast event type at debug level
+			var evtType struct {
+				Type string `json:"type"`
+			}
+			if err := json.Unmarshal(msg, &evtType); err == nil {
+				slog.Debug("broadcasting event",
+					"room_id", h.roomID,
+					"event_type", evtType.Type,
+				)
+			}
+
 			h.mu.RLock()
 			for client := range h.clients {
 				select {

@@ -62,17 +62,37 @@ func (c *Client) ReadPump() {
 			slog.Warn("failed to decode event",
 				"room_id", c.Hub.roomID,
 				"participant_id", c.ParticipantID,
+				"raw", string(message),
 				"error", err,
 			)
 			continue
 		}
 
+		eventType, _ := evt["type"].(string)
+		evtLogAttrs := []any{
+			"room_id", c.Hub.roomID,
+			"participant_id", c.ParticipantID,
+			"event_type", eventType,
+		}
+		if pos, ok := evt["position"]; ok {
+			evtLogAttrs = append(evtLogAttrs, "position", pos)
+		}
+		if dn, ok := evt["display_name"]; ok {
+			evtLogAttrs = append(evtLogAttrs, "display_name", dn)
+		}
+		if dn, ok := evt["displayName"]; ok {
+			evtLogAttrs = append(evtLogAttrs, "display_name", dn)
+		}
+		slog.Debug("incoming event", evtLogAttrs...)
+
 		if err := c.handleEvent(evt); err != nil {
-			slog.Error("event handler error",
+			slog.Warn("event handler error",
 				"room_id", c.Hub.roomID,
 				"participant_id", c.ParticipantID,
+				"event_type", eventType,
 				"error", err,
 			)
+			c.sendError(err.Error())
 		}
 	}
 }
@@ -187,6 +207,27 @@ func (c *Client) handleEvent(evt map[string]interface{}) error {
 	}
 
 	return nil
+}
+
+// sendError sends an error event to the client via the Send channel.
+// Errors during marshal are logged at WARN level; a full send channel is silently dropped.
+func (c *Client) sendError(message string) {
+	errEvt, err := json.Marshal(map[string]string{
+		"type":    "error",
+		"message": message,
+	})
+	if err != nil {
+		slog.Warn("sendError: failed to marshal error event",
+			"room_id", c.Hub.roomID,
+			"participant_id", c.ParticipantID,
+			"error", err,
+		)
+		return
+	}
+	select {
+	case c.Send <- errEvt:
+	default:
+	}
 }
 
 func getPositionField(evt map[string]interface{}) (float64, bool, error) {
