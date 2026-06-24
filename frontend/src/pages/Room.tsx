@@ -9,6 +9,7 @@ import { useRoomStore } from '../stores/roomStore'
 import { usePlaybackStore } from '../stores/playbackStore'
 import { useConnectionStore } from '../stores/connectionStore'
 import type { ServerEvent } from '../types'
+import { JoinRoomPrompt } from "../components/JoinRoomPrompt";
 
 export function Room() {
   const { roomId } = useParams<{ roomId: string }>()
@@ -35,6 +36,8 @@ export function Room() {
   const setConnectionStatus = useConnectionStore((s) => s.setStatus)
   const incrementReconnect = useConnectionStore((s) => s.incrementReconnect)
   const resetReconnect = useConnectionStore((s) => s.resetReconnect)
+
+  const setLocalDisplayName = useRoomStore((s) => s.setLocalDisplayName)
 
   // Redirect if we don't have room context
   useEffect(() => {
@@ -164,6 +167,16 @@ export function Room() {
         <p className="text-red-400">{pageError}</p>
         <Button onClick={() => navigate('/')}>Go Home</Button>
       </div>
+    )
+  }
+
+  if (!localDisplayName) {
+    return (
+      <JoinRoomPrompt
+        onSubmit={(name) => {
+          setLocalDisplayName(name)
+        }}
+      />
     )
   }
 
