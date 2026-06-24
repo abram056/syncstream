@@ -85,6 +85,7 @@ export interface RoomStateEvent {
   numOfParticipants: number
   updatedBy?: string
   updatedAt?: number
+  participants?: Array<{ userId: string; displayName: string; connected: boolean }>
 }
 
 export interface SyncStateEvent {

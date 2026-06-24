@@ -230,6 +230,15 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 
 	effectivePos := r.PlaybackState.EffectivePosition()
 
+	participantList := make([]map[string]interface{}, 0, len(r.Participants))
+	for _, p := range r.Participants {
+		participantList = append(participantList, map[string]interface{}{
+			"userId":      p.ID,
+			"displayName": p.DisplayName,
+			"connected":   p.Connected,
+		})
+	}
+
 	roomState := map[string]interface{}{
 		"type":              "room_state",
 		"roomId":            r.ID,
@@ -238,6 +247,7 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 		"isPlaying":         r.PlaybackState.IsPlaying,
 		"position":          effectivePos,
 		"numOfParticipants": len(r.Participants),
+		"participants":      participantList,
 	}
 	if msg, err := json.Marshal(roomState); err == nil {
 		client.Send <- msg

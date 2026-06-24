@@ -66,6 +66,11 @@ export function Room() {
             updatedBy: event.updatedBy || '',
             updatedAt: event.updatedAt || Date.now(),
           })
+          if (event.participants) {
+            for (const p of event.participants) {
+              addParticipant(p.userId, p.displayName)
+            }
+          }
           initialSyncDoneRef.current = true
           break
         }
