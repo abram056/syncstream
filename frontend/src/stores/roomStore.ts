@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { Participant, RoomView } from '../types'
 
 interface RoomStore {
@@ -8,6 +9,8 @@ interface RoomStore {
   view: RoomView
   participants: Participant[]
   localDisplayName: string
+  reconnectToken: string | null
+  participantId: string | null
 
   setRoomId: (id: string) => void
   setMediaUrl: (url: string) => void
@@ -17,6 +20,7 @@ interface RoomStore {
   addParticipant: (userId: string, displayName: string) => void
   removeParticipant: (userId: string) => void
   setParticipantConnected: (userId: string, connected: boolean) => void
+  setReconnectInfo: (participantId: string, reconnectToken: string) => void
   reset: () => void
   resetRuntime: () => void
 }
@@ -28,45 +32,62 @@ const initialState = {
   view: 'lobby' as RoomView,
   participants: [] as Participant[],
   localDisplayName: '',
+  reconnectToken: null,
+  participantId: null,
 }
 
-export const useRoomStore = create<RoomStore>((set) => ({
-  ...initialState,
+export const useRoomStore = create<RoomStore>()(
+  persist(
+    (set) => ({
+      ...initialState,
 
-  setRoomId: (id) => set({ roomId: id }),
-  setMediaUrl: (url) => set({ mediaUrl: url }),
-  setRoomStatus: (status) => set({ roomStatus: status }),
-  setView: (view) => set({ view }),
-  setLocalDisplayName: (name) => set({ localDisplayName: name }),
+      setRoomId: (id) => set({ roomId: id }),
+      setMediaUrl: (url) => set({ mediaUrl: url }),
+      setRoomStatus: (status) => set({ roomStatus: status }),
+      setView: (view) => set({ view }),
+      setLocalDisplayName: (name) => set({ localDisplayName: name }),
 
-  addParticipant: (userId, displayName) =>
-    set((state) => {
-      if (state.participants.some((p) => p.userId === userId)) return state
-      return {
-        participants: [
-          ...state.participants,
-          { userId, displayName, connected: true },
-        ],
-      }
+      addParticipant: (userId, displayName) =>
+        set((state) => {
+          if (state.participants.some((p) => p.userId === userId)) return state
+          return {
+            participants: [
+              ...state.participants,
+              { userId, displayName, connected: true },
+            ],
+          }
+        }),
+
+      removeParticipant: (userId) =>
+        set((state) => ({
+          participants: state.participants.filter((p) => p.userId !== userId),
+        })),
+
+      setParticipantConnected: (userId, connected) =>
+        set((state) => ({
+          participants: state.participants.map((p) =>
+            p.userId === userId ? { ...p, connected } : p
+          ),
+        })),
+
+      setReconnectInfo: (participantId, reconnectToken) =>
+        set({ participantId, reconnectToken }),
+
+      reset: () => set(initialState),
+      resetRuntime: () =>
+        set({
+          roomStatus: null,
+          view: 'lobby' as RoomView,
+          participants: [],
+        }),
     }),
-
-  removeParticipant: (userId) =>
-    set((state) => ({
-      participants: state.participants.filter((p) => p.userId !== userId),
-    })),
-
-  setParticipantConnected: (userId, connected) =>
-    set((state) => ({
-      participants: state.participants.map((p) =>
-        p.userId === userId ? { ...p, connected } : p
-      ),
-    })),
-
-  reset: () => set(initialState),
-  resetRuntime: () =>
-    set({
-      roomStatus: null,
-      view: 'lobby' as RoomView,
-      participants: [],
-    }),
-}))
+    {
+      name: 'syncstream-room',
+      partialize: (state) => ({
+        localDisplayName: state.localDisplayName,
+        reconnectToken: state.reconnectToken,
+        participantId: state.participantId,
+      }),
+    }
+  )
+)

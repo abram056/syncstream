@@ -38,6 +38,9 @@ export function Room() {
   const resetReconnect = useConnectionStore((s) => s.resetReconnect)
 
   const setLocalDisplayName = useRoomStore((s) => s.setLocalDisplayName)
+  const reconnectToken = useRoomStore((s) => s.reconnectToken)
+  const participantId = useRoomStore((s) => s.participantId)
+  const setReconnectInfo = useRoomStore((s) => s.setReconnectInfo)
 
   // Redirect if we don't have room context
   useEffect(() => {
@@ -56,6 +59,7 @@ export function Room() {
     const handleEvent = (event: ServerEvent) => {
       switch (event.type) {
         case 'room_joined': {
+          setReconnectInfo(event.participantId, event.reconnect_token)
           break
         }
         case 'room_state': {
@@ -115,6 +119,10 @@ export function Room() {
           type: 'join_room',
           room_id: effectiveRoomId,
           display_name: localDisplayName,
+          ...(reconnectToken && participantId ? {
+            reconnect_token: reconnectToken,
+            participant_id: participantId,
+          } : {}),
         })
       } else if (status === 'disconnected') {
         incrementReconnect()

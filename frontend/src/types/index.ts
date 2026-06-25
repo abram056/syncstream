@@ -35,6 +35,7 @@ export interface JoinRoomEvent {
   room_id: string
   display_name: string
   reconnect_token?: string
+  participant_id?: string
 }
 
 export interface LeaveRoomEvent {
@@ -72,6 +73,7 @@ export type ServerEvent =
 export interface RoomJoinedEvent {
   type: 'room_joined'
   roomId: string
+  participantId: string
   reconnect_token: string
 }
 

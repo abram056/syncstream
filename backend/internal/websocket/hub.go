@@ -188,13 +188,20 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 		reconnectToken, _ = evt["reconnectToken"].(string)
 	}
 
+	// Use participant_id from event if provided (for cross-session reconnects)
+	reconnectID := client.ParticipantID
+	if pid, ok := evt["participant_id"].(string); ok && pid != "" {
+		reconnectID = pid
+	}
+
 	var wasReconnect bool
 	var reconnectTokenValue string
 
-	if reconnectToken != "" && client.ParticipantID != "" {
-		p, err := h.manager.ReconnectParticipant(h.roomID, client.ParticipantID, reconnectToken)
+	if reconnectToken != "" && reconnectID != "" {
+		p, err := h.manager.ReconnectParticipant(h.roomID, reconnectID, reconnectToken)
 		if err == nil {
 			client.DisplayName = p.DisplayName
+			client.ParticipantID = p.ID
 			reconnectTokenValue = p.ReconnectToken
 			wasReconnect = true
 		}
@@ -212,6 +219,7 @@ func (h *Hub) HandleJoinRoom(client *Client, evt map[string]interface{}) error {
 	roomJoined := map[string]interface{}{
 		"type":            "room_joined",
 		"roomId":          h.roomID,
+		"participantId":   client.ParticipantID,
 		"reconnect_token": reconnectTokenValue,
 	}
 	if msg, err := json.Marshal(roomJoined); err == nil {
