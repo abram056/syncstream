@@ -20,13 +20,20 @@ export function usePlaybackSync(videoRef: React.RefObject<HTMLVideoElement | nul
     const video = videoRef.current
     if (!video || !lastSyncTime) return
 
-    if (Math.abs(video.currentTime - effectivePosition()) > 1) {
+    const needsSeek = Math.abs(video.currentTime - effectivePosition()) > 1.0
+    if (needsSeek) {
       syncingRef.current = true
       video.currentTime = effectivePosition()
+
+      const onSeeked = () => {
+        syncingRef.current = false
+        video.removeEventListener('seeked', onSeeked)
+      }
+      video.addEventListener('seeked', onSeeked)
     }
 
     if (isPlaying) {
-      video.play().catch(() => {})
+      video.play().catch(() => { })
     } else {
       video.pause()
     }
@@ -40,10 +47,10 @@ export function usePlaybackSync(videoRef: React.RefObject<HTMLVideoElement | nul
       if (!video || syncingRef.current) return
       const target = effectivePosition()
       const drift = Math.abs(video.currentTime - target)
-      if (drift > 0.5) {
+      if (drift > 1) {
         video.currentTime = target
       }
-    }, 2000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [isPlaying, lastSyncTime, videoRef, effectivePosition])
 

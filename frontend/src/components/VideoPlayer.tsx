@@ -5,7 +5,7 @@ import { PlaybackControls } from './PlaybackControls'
 
 interface Props {
   mediaUrl: string
-  onTogglePlay: () => void
+  onTogglePlay: (position?: number) => void
   onSeek: (position: number) => void
   onShowParticipants: () => void
 }
@@ -24,6 +24,13 @@ export function VideoPlayer({
   const lastSyncTime = usePlaybackStore((s) => s.lastSyncTime)
 
   usePlaybackSync(videoRef)
+
+  const handleTogglePlay = useCallback(() => {
+    if (videoRef.current) {
+      const position = videoRef.current.currentTime
+      onTogglePlay(position)
+    }
+  }, [onTogglePlay])
 
   const handleTimeUpdate = useCallback(() => {
     if (videoRef.current && !seeking) {
@@ -88,7 +95,7 @@ export function VideoPlayer({
 
       <PlaybackControls
         isPlaying={isPlaying}
-        onTogglePlay={onTogglePlay}
+        onTogglePlay={handleTogglePlay}
         onSeekBack={handleSeekBack}
         onSeekForward={handleSeekForward}
         currentTime={currentTime}

@@ -27,6 +27,7 @@ export function Room() {
   const removeParticipant = useRoomStore((s) => s.removeParticipant)
   const setParticipantConnected = useRoomStore((s) => s.setParticipantConnected)
   const setRoomStatus = useRoomStore((s) => s.setRoomStatus)
+  const setMediaUrl = useRoomStore((s) => s.setMediaUrl)
   const resetRuntime = useRoomStore((s) => s.resetRuntime)
 
   const syncState = usePlaybackStore((s) => s.syncState)
@@ -64,6 +65,7 @@ export function Room() {
         }
         case 'room_state': {
           setRoomStatus(event.status)
+          setMediaUrl(event.mediaUrl)
           syncState({
             isPlaying: event.isPlaying,
             position: event.position,
@@ -140,17 +142,17 @@ export function Room() {
     }
   }, [effectiveRoomId, localDisplayName])
 
-  const handleTogglePlay = useCallback(() => {
+  const handleTogglePlay = useCallback((position?: number) => {
     if (view === 'lobby') {
       wsManager.send({
-        type: 'play',
+        type: 'play', position
       })
       setView('watching')
     } else {
       if (isPlaying) {
-        wsManager.send({ type: 'pause' })
+        wsManager.send({ type: 'pause', position })
       } else {
-        wsManager.send({ type: 'play' })
+        wsManager.send({ type: 'play', position })
       }
     }
   }, [view, isPlaying, setView])
