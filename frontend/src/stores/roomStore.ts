@@ -23,6 +23,7 @@ interface RoomStore {
   setReconnectInfo: (participantId: string, reconnectToken: string) => void
   reset: () => void
   resetRuntime: () => void
+  leaveRoom: () => void
 }
 
 const initialState = {
@@ -73,6 +74,12 @@ export const useRoomStore = create<RoomStore>()(
       setReconnectInfo: (participantId, reconnectToken) =>
         set({ participantId, reconnectToken }),
 
+      leaveRoom: () => set({
+        ...initialState,
+        localDisplayName: '',  // clear persisted data too
+        reconnectToken: null,
+        participantId: null,
+      }),
       reset: () => set(initialState),
       resetRuntime: () =>
         set({
@@ -87,6 +94,7 @@ export const useRoomStore = create<RoomStore>()(
         localDisplayName: state.localDisplayName,
         reconnectToken: state.reconnectToken,
         participantId: state.participantId,
+        roomId: state.roomId,
       }),
     }
   )

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { LogOut } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Lobby } from '../components/Lobby'
 import { VideoPlayer } from '../components/VideoPlayer'
@@ -28,6 +29,7 @@ export function Room() {
   const setParticipantConnected = useRoomStore((s) => s.setParticipantConnected)
   const setRoomStatus = useRoomStore((s) => s.setRoomStatus)
   const setMediaUrl = useRoomStore((s) => s.setMediaUrl)
+  const leaveRoom = useRoomStore((s) => s.leaveRoom)
   const resetRuntime = useRoomStore((s) => s.resetRuntime)
 
   const syncState = usePlaybackStore((s) => s.syncState)
@@ -139,6 +141,7 @@ export function Room() {
     return () => {
       unsubEvent()
       unsubStatus()
+      initialSyncDoneRef.current = false
     }
   }, [effectiveRoomId, localDisplayName])
 
@@ -166,13 +169,20 @@ export function Room() {
     setView('watching')
   }, [setView])
 
+  const handleLeave = useCallback(() => {
+    wsManager.send({ type: 'leave_room', room_id: effectiveRoomId })
+    wsManager.disconnect()
+    leaveRoom()
+    resetPlayback()
+    navigate('/')
+  }, [effectiveRoomId, navigate, leaveRoom, resetPlayback])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       wsManager.disconnect()
       resetRuntime()
       resetPlayback()
-      initialSyncDoneRef.current = false
     }
   }, [])
 
@@ -198,7 +208,7 @@ export function Room() {
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
       {view === 'lobby' ? (
-        <Lobby onStartWatching={handleStartWatching} roomId={effectiveRoomId} />
+        <Lobby onStartWatching={handleStartWatching} onLeave={handleLeave} roomId={effectiveRoomId} />
       ) : (
         <div className="flex flex-1 flex-col">
           {mediaUrl && (

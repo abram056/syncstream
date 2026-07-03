@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, Users, Link as LinkIcon, Check } from 'lucide-react'
+import { Play, Users, Link as LinkIcon, Check, LogOut } from 'lucide-react'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
 import { ParticipantList } from './ParticipantList'
@@ -7,10 +7,11 @@ import { useRoomStore } from '../stores/roomStore'
 
 interface Props {
   onStartWatching: () => void
+  onLeave: () => void
   roomId: string
 }
 
-export function Lobby({ onStartWatching, roomId }: Props) {
+export function Lobby({ onStartWatching, onLeave, roomId }: Props) {
   const [showParticipants, setShowParticipants] = useState(false)
   const [copied, setCopied] = useState(false)
   const participants = useRoomStore((s) => s.participants)
@@ -55,6 +56,11 @@ export function Lobby({ onStartWatching, roomId }: Props) {
         <Button className="w-full" size="lg" onClick={onStartWatching}>
           <Play className="mr-2 h-5 w-5" />
           Start Watching
+        </Button>
+
+        <Button variant="ghost" className="w-full" onClick={onLeave}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Leave Room
         </Button>
       </Card>
 
